@@ -19,7 +19,8 @@ import {
   DocNodeKind,
   DocSection,
   DocParamBlock,
-  DocCodeFence
+  DocCodeFence,
+  IDocInlineTagParameters
 } from '../nodes';
 import { TokenSequence } from './TokenSequence';
 import { Excerpt, IExcerptParameters } from './Excerpt';
@@ -32,6 +33,7 @@ import {
   TSDocTagSyntaxKind
 } from './TSDocTagDefinition';
 import { StandardTags } from '../details/StandardTags';
+import { DocLinkTag } from '../nodes/DocLinkTag';
 
 interface IFailure {
   // (We use "failureMessage" instead of "errorMessage" here so that DocErrorText doesn't
@@ -450,11 +452,10 @@ export class NodeParser {
     const tagNameExcerptParameters: IExcerptParameters = {
       content: this._tokenReader.extractAccumulatedSequence()
     };
+    let spacingAfterTagName: string = this._readSpacingAndNewlines();
+    tagNameExcerptParameters.spacingAfterContent = this._tokenReader.tryExtractAccumulatedSequence();
 
-    // We include the space in tagContent in case the implementor wants to assign some
-    // special meaning to spaces for their tag.
-    let tagContent: string = this._readSpacingAndNewlines();
-    if (tagContent.length === 0) {
+    if (spacingAfterTagName.length === 0) {
       // If there were no spaces at all, that's an error unless it's the degenerate "{@tag}" case
       if (this._tokenReader.peekTokenKind() !== TokenKind.RightCurlyBracket) {
         const failure: IFailure = this._createFailureForToken(
@@ -463,6 +464,7 @@ export class NodeParser {
       }
     }
 
+    let tagContent: string = '';
     let done: boolean = false;
     while (!done) {
       switch (this._tokenReader.peekTokenKind()) {
@@ -515,7 +517,7 @@ export class NodeParser {
       content: this._tokenReader.extractAccumulatedSequence()
     };
 
-    return new DocInlineTag({
+    const docInlineTagParameters: IDocInlineTagParameters = {
       openingDelimiterExcerpt: new Excerpt(openingDelimiterExcerptParameters),
 
       tagNameExcerpt: new Excerpt(tagNameExcerptParameters),
@@ -525,7 +527,61 @@ export class NodeParser {
       tagContent: tagContent,
 
       closingDelimiterExcerpt: new Excerpt(closingDelimiterExcerptParameters)
-    });
+    };
+
+    switch (tagName.toUpperCase()) {
+      case StandardTags.link.tagNameWithUpperCase:
+        return this._parseLinkTag(docInlineTagParameters);
+      default:
+        return new DocInlineTag(docInlineTagParameters);
+    }
+  }
+
+  private _parseLinkTag(parameters: IDocInlineTagParameters): DocNode {
+    const docLinkTag: DocLinkTag = new DocLinkTag(parameters);
+
+    if (!parameters.tagContentExcerpt) {
+      this._parserContext.log.addMessageForTokenSequence(
+        'The @link tag content is missing',
+        parameters.tagNameExcerpt!.content, docLinkTag);
+
+      return docLinkTag;
+    }
+
+    // Create a new TokenReader that will reparse the tokens corresponding to the tagContent.
+    const embeddedTokenReader: TokenReader = new TokenReader(this._parserContext,
+      parameters.tagContentExcerpt.content);
+
+    const marker: number = embeddedTokenReader.createMarker();
+
+    // Is this a URI?  Look for a scheme such as "http://"
+    if (embeddedTokenReader.peekTokenKind() === TokenKind.AsciiWord
+      && embeddedTokenReader.peekTokenAfterKind() === TokenKind.Colon
+      && embeddedTokenReader.peekTokenAfterAfterKind() === TokenKind.Slash) {
+      this._parseLinkTagUri(embeddedTokenReader);
+    }
+
+    return docLinkTag;
+  }
+
+  private _parseLinkTagUri(embeddedTokenReader: TokenReader): void {
+    // Simply accumulate everything up to the next space. We won't try to implement a URI parser here.
+    let uri: string = '';
+
+    let done: boolean = false;
+    while (!done) {
+      switch (embeddedTokenReader.peekTokenKind()) {
+        case TokenKind.Spacing:
+        case TokenKind.EndOfInput:
+        case TokenKind.Pipe:
+        case TokenKind.RightCurlyBracket:
+          done = true;
+          break;
+        default:
+          uri += embeddedTokenReader.readToken();
+          break;
+      }
+    }
   }
 
   private _parseHtmlStartTag(): DocNode {

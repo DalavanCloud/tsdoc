@@ -121,23 +121,10 @@ Object {
             "nodeExcerpt": "This method is part of the ",
           },
           Object {
-            "kind": "InlineTag",
+            "kind": "LinkTag",
             "nodes": Array [
               Object {
                 "kind": "Particle",
-                "nodeExcerpt": "{",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": "@link",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": " core-library/Math | Math subsystem",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": "}",
               },
             ],
           },
@@ -529,23 +516,10 @@ Object {
             "nodeExcerpt": "[n]",
           },
           Object {
-            "kind": "InlineTag",
+            "kind": "LinkTag",
             "nodes": Array [
               Object {
                 "kind": "Particle",
-                "nodeExcerpt": "{",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": "@link",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": " core-library/Math | Math subsystem",
-              },
-              Object {
-                "kind": "Particle",
-                "nodeExcerpt": "}",
               },
             ],
           },
